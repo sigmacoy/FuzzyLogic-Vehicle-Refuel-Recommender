@@ -1,57 +1,71 @@
-from membership import triangular_membership
+from membership import triangular_membership, trapezoidal_membership
 
-def run_fuzzy_controller(fuel_level, distance):
-    """Runs the Mamdani logic steps and prints intermediate results."""
-    print(f"\nCrisp Inputs -> Fuel Level: {fuel_level}%, Distance: {distance}km")
+def run_fuzzy_controller(fuel, distance):
+    print(f"\nCrisp Inputs -> Fuel: {fuel}L, Distance: {distance}km")
 
-    # 1. FUZZIFICATION (Input Memberships)
-    fuel_low = triangular_membership(fuel_level, 0, 0, 50)
-    fuel_med = triangular_membership(fuel_level, 20, 50, 80)
-    fuel_high = triangular_membership(fuel_level, 50, 100, 100)
+    # 1. FUZZIFICATION
+    # Fuel: 0 to 50 Liters. Edges use Trapezoidal to stay at 1.0 beyond peaks.
+    fuel_low = trapezoidal_membership(fuel, 0.0, 0.0, 5.0, 15.0)    # 0-5L is critically low
+    fuel_med = triangular_membership(fuel, 10.0, 25.0, 40.0)
+    fuel_high = trapezoidal_membership(fuel, 30.0, 45.0, 50.0, 50.0) # >45L is perfectly full
 
-    dist_near = triangular_membership(distance, 0, 0, 50)
-    dist_med = triangular_membership(distance, 20, 50, 80)
-    dist_far = triangular_membership(distance, 50, 100, 100)
+    # Distance: Scaled to 250km (since 10L = 200km range)
+    dist_near = trapezoidal_membership(distance, 0.0, 0.0, 20.0, 60.0)
+    dist_med = triangular_membership(distance, 40.0, 100.0, 160.0)
+    dist_far = trapezoidal_membership(distance, 120.0, 200.0, 250.0, 250.0)
 
     print("\n--- Fuzzification Results ---")
-    print(f"Fuel Level [Low: {fuel_low:.2f}, Med: {fuel_med:.2f}, High: {fuel_high:.2f}]")
+    print(f"Fuel       [Low: {fuel_low:.2f}, Med: {fuel_med:.2f}, High: {fuel_high:.2f}]")
     print(f"Distance   [Near: {dist_near:.2f}, Med: {dist_med:.2f}, Far: {dist_far:.2f}]")
 
-    # 2. RULE EVALUATION (Firing Strengths)
-    # Rule 1: IF Fuel is Low OR Distance is Far, THEN Urgency is Mandatory Refuel
-    # Rule 2: IF Fuel is Medium AND Distance is Medium, THEN Urgency is Consider
-    # Rule 3: IF Fuel is High, THEN Urgency is Skip
-    
-    rule1_strength = max(fuel_low, dist_far)  # OR means Max
-    rule2_strength = min(fuel_med, dist_med)  # AND means Min
-    rule3_strength = fuel_high                # Direct assignment
+    # 2. RULE EVALUATION (Complete 9-Rule Matrix)
+    # MANDATORY REFUEL CONDITIONS
+    # Low fuel, or Medium fuel trying to cover a Far distance
+    r1 = min(fuel_low, dist_near)
+    r2 = min(fuel_low, dist_med)
+    r3 = min(fuel_low, dist_far)
+    r4 = min(fuel_med, dist_far) 
+    strength_mandatory = max(r1, r2, r3, r4)
+
+    # CONSIDER REFUEL CONDITIONS
+    # Medium fuel/Medium distance, or High fuel/Far distance (just in case)
+    r5 = min(fuel_med, dist_near)
+    r6 = min(fuel_med, dist_med)
+    r7 = min(fuel_high, dist_far)
+    strength_consider = max(r5, r6, r7)
+
+    # SKIP REFUEL CONDITIONS
+    # High fuel (near/med dist)
+    r8 = min(fuel_high, dist_near)
+    r9 = min(fuel_high, dist_med)
+    strength_skip = max(r8, r9)
 
     print("\n--- Rule Firing Strengths ---")
-    print(f"Rule 1 (Mandatory Refuel): {rule1_strength:.2f}")
-    print(f"Rule 2 (Consider Refuel):  {rule2_strength:.2f}")
-    print(f"Rule 3 (Skip Refuel):      {rule3_strength:.2f}")
+    print(f"Mandatory Refuel: {strength_mandatory:.2f}")
+    print(f"Consider Refuel:  {strength_consider:.2f}")
+    print(f"Skip Refuel:      {strength_skip:.2f}")
 
-    # 3. IMPLICATION, AGGREGATION & DEFUZZIFICATION (Center of Gravity)
+    # 3. IMPLICATION, AGGREGATION & DEFUZZIFICATION (Centroid)
     sum_numerator = 0.0
     sum_denominator = 0.0
     step = 0.5  
     
     y = 0.0
     while y <= 100.0:
-        # Define output membership functions for Urgency
-        out_skip = triangular_membership(y, 0.0, 0.0, 50.0)
-        out_consider = triangular_membership(y, 20.0, 50.0, 80.0)
-        out_mandatory = triangular_membership(y, 50.0, 100.0, 100.0)
+        # Output Urgency MFs (Edges are trapezoidal so 0% and 100% don't drop off)
+        out_skip = trapezoidal_membership(y, 0.0, 0.0, 20.0, 50.0)
+        out_consider = triangular_membership(y, 25.0, 50.0, 75.0)
+        out_mandatory = trapezoidal_membership(y, 50.0, 80.0, 100.0, 100.0)
 
-        # Implication: Clip using Min
-        clipped_skip = min(rule3_strength, out_skip)
-        clipped_consider = min(rule2_strength, out_consider)
-        clipped_mandatory = min(rule1_strength, out_mandatory)
+        # Implication (Clip)
+        clipped_skip = min(strength_skip, out_skip)
+        clipped_consider = min(strength_consider, out_consider)
+        clipped_mandatory = min(strength_mandatory, out_mandatory)
 
-        # Aggregation: Combine using Max
+        # Aggregation (Union)
         aggregated_y = max(clipped_skip, clipped_consider, clipped_mandatory)
 
-        # Accumulate for Centroid calculation
+        # Centroid accumulation
         sum_numerator += y * aggregated_y * step
         sum_denominator += aggregated_y * step
         
@@ -61,7 +75,7 @@ def run_fuzzy_controller(fuel_level, distance):
     if sum_denominator > 0.0:
         crisp_output = sum_numerator / sum_denominator
 
-    print("\n--- Mamdani Defuzzification Result (Centroid) ---")
+    print("\n--- Mamdani Defuzzification Result ---")
     print(f"Calculated Crisp Urgency Output: {crisp_output:.2f}%")
     
     return crisp_output
