@@ -20,7 +20,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install numpy scikit-fuzzy matplotlib
 python3 main.py
-pip install networkx
-pip install scipy
-python3 main.py
 ```
+
+## More:
+### The verbose=True parameter wrapped in print() statements is mandatory-otherwise, when Matplotlib calculates the 3D grid, the terminal will print those lines 2,500 times and crash.

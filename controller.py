@@ -1,7 +1,8 @@
 from membership import triangular_membership, trapezoidal_membership
 
-def run_fuzzy_controller(fuel, distance):
-    print(f"\nCrisp Inputs -> Fuel: {fuel}L, Distance: {distance}km")
+def run_fuzzy_controller(fuel, distance, verbose):
+    if verbose:
+        print(f"\nCrisp Inputs -> Fuel: {fuel}L, Distance: {distance}km")
 
     # 1. FUZZIFICATION
     # Fuel: 0 to 50 Liters. Edges use Trapezoidal to stay at 1.0 beyond peaks.
@@ -14,9 +15,10 @@ def run_fuzzy_controller(fuel, distance):
     dist_med = triangular_membership(distance, 40.0, 100.0, 160.0)
     dist_far = trapezoidal_membership(distance, 120.0, 200.0, 250.0, 250.0)
 
-    print("\n--- Fuzzification Results ---")
-    print(f"Fuel       [Low: {fuel_low:.2f}, Med: {fuel_med:.2f}, High: {fuel_high:.2f}]")
-    print(f"Distance   [Near: {dist_near:.2f}, Med: {dist_med:.2f}, Far: {dist_far:.2f}]")
+    if verbose:
+        print("\n--- Fuzzification Results ---")
+        print(f"Fuel       [Low: {fuel_low:.2f}, Med: {fuel_med:.2f}, High: {fuel_high:.2f}]")
+        print(f"Distance   [Near: {dist_near:.2f}, Med: {dist_med:.2f}, Far: {dist_far:.2f}]")
 
     # 2. RULE EVALUATION (Complete 9-Rule Matrix)
     # MANDATORY REFUEL CONDITIONS
@@ -40,10 +42,11 @@ def run_fuzzy_controller(fuel, distance):
     r9 = min(fuel_high, dist_med)
     strength_skip = max(r8, r9)
 
-    print("\n--- Rule Firing Strengths ---")
-    print(f"Mandatory Refuel: {strength_mandatory:.2f}")
-    print(f"Consider Refuel:  {strength_consider:.2f}")
-    print(f"Skip Refuel:      {strength_skip:.2f}")
+    if verbose:
+        print("\n--- Rule Firing Strengths ---")
+        print(f"Mandatory Refuel: {strength_mandatory:.2f}")
+        print(f"Consider Refuel:  {strength_consider:.2f}")
+        print(f"Skip Refuel:      {strength_skip:.2f}")
 
     # 3. IMPLICATION, AGGREGATION & DEFUZZIFICATION (Centroid)
     sum_numerator = 0.0
@@ -75,7 +78,8 @@ def run_fuzzy_controller(fuel, distance):
     if sum_denominator > 0.0:
         crisp_output = sum_numerator / sum_denominator
 
-    print("\n--- Mamdani Defuzzification Result ---")
-    print(f"Calculated Crisp Urgency Output: {crisp_output:.2f}%")
+    if verbose:
+        print("\n--- Mamdani Defuzzification Result ---")
+        print(f"Calculated Crisp Urgency Output: {crisp_output:.2f}%")
     
     return crisp_output
