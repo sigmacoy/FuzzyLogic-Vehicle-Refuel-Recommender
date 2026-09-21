@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
 from matplotlib import cm
 from membership import triangular_membership, trapezoidal_membership
 from controller import run_fuzzy_controller
@@ -39,16 +40,78 @@ def plot_membership_functions():
     plt.tight_layout()
     plt.show()
 
+def plot_interactive_membership_functions():
+    """Requirement 1: Interactive 2D Plots with Sliders"""
+    # Create figure and make room at the bottom for sliders
+    fig, (ax_fuel, ax_dist, ax_out) = plt.subplots(1, 3, figsize=(15, 5))
+    plt.subplots_adjust(bottom=0.3) 
+
+    fuel_x = np.linspace(0, 50, 100)
+    dist_x = np.linspace(0, 250, 100)
+    out_x = np.linspace(0, 100, 100)
+
+    # 1. Plot Static Shapes
+    ax_fuel.plot(fuel_x, [trapezoidal_membership(x, 0, 0, 5, 15) for x in fuel_x], label='Low')
+    ax_fuel.plot(fuel_x, [triangular_membership(x, 10, 25, 40) for x in fuel_x], label='Med')
+    ax_fuel.plot(fuel_x, [trapezoidal_membership(x, 30, 45, 50, 50) for x in fuel_x], label='High')
+    ax_fuel.set_title('Input 1: Fuel Level (Liters)')
+
+    ax_dist.plot(dist_x, [trapezoidal_membership(x, 0, 0, 20, 60) for x in dist_x], label='Near')
+    ax_dist.plot(dist_x, [triangular_membership(x, 40, 100, 160) for x in dist_x], label='Med')
+    ax_dist.plot(dist_x, [trapezoidal_membership(x, 120, 200, 250, 250) for x in dist_x], label='Far')
+    ax_dist.set_title('Input 2: Distance (km)')
+
+    ax_out.plot(out_x, [trapezoidal_membership(x, 0, 0, 20, 50) for x in out_x], label='Skip')
+    ax_out.plot(out_x, [triangular_membership(x, 25, 50, 75) for x in out_x], label='Consider')
+    ax_out.plot(out_x, [trapezoidal_membership(x, 50, 80, 100, 100) for x in out_x], label='Mandatory')
+    ax_out.set_title('Output: Refuel Urgency (%)')
+
+    # Initial values
+    init_fuel = 10.0
+    init_dist = 65.0
+    init_urgency = run_fuzzy_controller(init_fuel, init_dist, verbose=False)
+
+    # 2. Draw Dynamic Lines
+    fuel_line = ax_fuel.axvline(x=init_fuel, color='r', linestyle='--', label='Current Fuel')
+    dist_line = ax_dist.axvline(x=init_dist, color='r', linestyle='--', label='Current Dist')
+    out_line = ax_out.axvline(x=init_urgency, color='r', linestyle='-', linewidth=2, label='Crisp Urgency')
+
+    ax_fuel.legend()
+    ax_dist.legend()
+    ax_out.legend()
+
+    # 3. Create Sliders
+    ax_slider_fuel = plt.axes([0.2, 0.15, 0.6, 0.03])
+    ax_slider_dist = plt.axes([0.2, 0.05, 0.6, 0.03])
+
+    slider_fuel = Slider(ax_slider_fuel, 'Fuel (L)', 0.0, 50.0, valinit=init_fuel)
+    slider_dist = Slider(ax_slider_dist, 'Distance (km)', 0.0, 250.0, valinit=init_dist)
+
+    # 4. Update Function (Fires when sliders move)
+    def update(val):
+        f = slider_fuel.val
+        d = slider_dist.val
+        u = run_fuzzy_controller(f, d, verbose=False)
+        
+        # Move the red lines
+        fuel_line.set_xdata([f, f])
+        dist_line.set_xdata([d, d])
+        out_line.set_xdata([u, u])
+        
+        fig.canvas.draw_idle()
+
+    slider_fuel.on_changed(update)
+    slider_dist.on_changed(update)
+
+    plt.show()
+
 def plot_control_surface():
     """Requirement 2: 3D Control Surface"""
-    # Create a 50x50 grid for calculation
     fuel_vals = np.linspace(0, 50, 50)
     dist_vals = np.linspace(0, 250, 50)
     F, D = np.meshgrid(fuel_vals, dist_vals)
     Z = np.zeros_like(F)
 
-    # Calculate Z for each point in the grid
-    # (Ensure your run_fuzzy_controller suppresses prints here)
     for i in range(F.shape[0]):
         for j in range(F.shape[1]):
             Z[i, j] = run_fuzzy_controller(F[i, j], D[i, j], verbose=False)
@@ -89,8 +152,8 @@ def main():
         
     print(f"Final Decision: {decision}\n")
         
-    print("Generating 2D Membership Function Plots...")
-    plot_membership_functions()
+    print("Generating 2D Interactive Membership Function Plots...")
+    plot_interactive_membership_functions()
     
     print("Generating 3D Control Surface... (This takes a few seconds)")
     plot_control_surface()
