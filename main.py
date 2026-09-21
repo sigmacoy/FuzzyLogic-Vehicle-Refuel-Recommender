@@ -41,10 +41,10 @@ def plot_membership_functions():
     plt.show()
 
 def plot_interactive_membership_functions():
-    """Requirement 1: Interactive 2D Plots with Sliders"""
-    # Create figure and make room at the bottom for sliders
-    fig, (ax_fuel, ax_dist, ax_out) = plt.subplots(1, 3, figsize=(15, 5))
-    plt.subplots_adjust(bottom=0.3) 
+    """Requirement 1: Interactive 2D Plots with Sliders and Crisp Output Text"""
+    # Create figure and make room at the bottom for sliders and text
+    fig, (ax_fuel, ax_dist, ax_out) = plt.subplots(1, 3, figsize=(15, 6))
+    plt.subplots_adjust(bottom=0.35) 
 
     fuel_x = np.linspace(0, 50, 100)
     dist_x = np.linspace(0, 250, 100)
@@ -71,6 +71,12 @@ def plot_interactive_membership_functions():
     init_dist = 65.0
     init_urgency = run_fuzzy_controller(init_fuel, init_dist, verbose=False)
 
+    # Helper function to map percentage to text decision
+    def get_decision_text(val):
+        if val >= 65: return "Mandatory Refuel!"
+        elif val >= 35: return "Consider Refueling Soon."
+        return "Skip, you have plenty."
+
     # 2. Draw Dynamic Lines
     fuel_line = ax_fuel.axvline(x=init_fuel, color='r', linestyle='--', label='Current Fuel')
     dist_line = ax_dist.axvline(x=init_dist, color='r', linestyle='--', label='Current Dist')
@@ -80,14 +86,22 @@ def plot_interactive_membership_functions():
     ax_dist.legend()
     ax_out.legend()
 
-    # 3. Create Sliders
-    ax_slider_fuel = plt.axes([0.2, 0.15, 0.6, 0.03])
-    ax_slider_dist = plt.axes([0.2, 0.05, 0.6, 0.03])
+    # 3. Create Sliders (Adjusted width to make room for text on the right)
+    ax_slider_fuel = plt.axes([0.1, 0.15, 0.5, 0.03])
+    ax_slider_dist = plt.axes([0.1, 0.05, 0.5, 0.03])
 
     slider_fuel = Slider(ax_slider_fuel, 'Fuel (L)', 0.0, 50.0, valinit=init_fuel)
     slider_dist = Slider(ax_slider_dist, 'Distance (km)', 0.0, 250.0, valinit=init_dist)
 
-    # 4. Update Function (Fires when sliders move)
+    # 4. Create Dynamic Text Box for Crisp Output
+    crisp_text_display = fig.text(
+        0.8, 0.12,  # x, y coordinates
+        f"Crisp Output: {init_urgency:.2f}%\n\nAction: {get_decision_text(init_urgency)}",
+        fontsize=12, fontweight='bold', ha='center', va='center',
+        bbox=dict(facecolor='lightblue', alpha=0.5, edgecolor='black', boxstyle='round,pad=1')
+    )
+
+    # 5. Update Function (Fires when sliders move)
     def update(val):
         f = slider_fuel.val
         d = slider_dist.val
@@ -97,6 +111,9 @@ def plot_interactive_membership_functions():
         fuel_line.set_xdata([f, f])
         dist_line.set_xdata([d, d])
         out_line.set_xdata([u, u])
+        
+        # Update the exact text readout
+        crisp_text_display.set_text(f"Crisp Output: {u:.2f}%\n\nAction: {get_decision_text(u)}")
         
         fig.canvas.draw_idle()
 
